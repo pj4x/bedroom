@@ -34,12 +34,10 @@ void timer_init(void)
 
 void handle_timer_1() {
     schedule_next_compare(1, &cur_val_1, interval_1);
-    printf("timer 1\n");
 }
 
 void handle_timer_3() {
     schedule_next_compare(3, &cur_val_3, interval_3);
-    printf("timer 3\n");
 }
 
 u64 timer_get_ticks(void)

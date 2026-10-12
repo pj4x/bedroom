@@ -51,9 +51,10 @@ static void gic_enable_spi(u32 id)
 }
 
 
+
 void enable_interrupt_controller(void)
 {
-    /* Keep the controller disabled while configuring target and enable bits. */
+    // Keep the controller disabled while configuring target and enable bits
     GICD_CTLR = 0;
     GICC_CTLR = 0;
     GICC_PMR = 0xFF;
@@ -67,11 +68,13 @@ void enable_interrupt_controller(void)
 }
 
 
+
+
 static void dispatch_gic_irq(u32 id)
 {
     switch (id) {
     case GIC_IRQ_AUX:
-        // Drain RX FIFO. Keep interrupt work short; no formatted logging here.
+        // Drain RX FIFO
         while (REGS_AUX->mu_lsr & 1u) {
             uart_send(uart_recv());
         }
@@ -98,7 +101,7 @@ void handle_irq(void)
         if (id == GIC_SPURIOUS_ID)
             return;
         dispatch_gic_irq(id);
-        // GIC requires the original acknowledge token for completion.
+        // GIC requires the original acknowledge token for completion
         GICC_EOIR = acknowledge;
     }
 }

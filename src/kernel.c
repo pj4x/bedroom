@@ -38,6 +38,6 @@ void kernel_main() {
     printf("DONE!\n");
 
     while(1) {
-        //uart_send(uart_recv());
+        //
     }
 }
