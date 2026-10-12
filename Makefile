@@ -1,6 +1,4 @@
 RPI_VERSION ?= 4
-
-# Bare-metal AArch64 toolchain installed via Homebrew
 ARMGNU ?= aarch64-elf
 
 COPS = -DRPI_VERSION=$(RPI_VERSION) \
@@ -8,16 +6,13 @@ COPS = -DRPI_VERSION=$(RPI_VERSION) \
        -ffreestanding -fno-stack-protector \
        -fno-pic -mgeneral-regs-only \
        -Iinclude
-
 ASMOPS = -Iinclude
 
 BUILD_DIR = build
 SRC_DIR = src
-
 BOOTMNT = /Volumes/bootfs
 
-.PHONY: all clean
-
+.PHONY: all clean deploy armstub
 all: kernel8.img
 
 clean:
@@ -41,17 +36,19 @@ DEP_FILES = $(OBJ_FILES:%.o=%.d)
 -include $(DEP_FILES)
 
 kernel8.img: $(SRC_DIR)/linker.ld $(OBJ_FILES)
+	@echo "\n"
 	@echo "Building for Raspberry Pi $(RPI_VERSION)"
-	$(ARMGNU)-ld -T $(SRC_DIR)/linker.ld \
-	    -o $(BUILD_DIR)/kernel8.elf $(OBJ_FILES)
-	$(ARMGNU)-objcopy $(BUILD_DIR)/kernel8.elf \
-	    -O binary kernel8.img
-	cp kernel8.img $(BOOTMNT)/
-	cp config.txt $(BOOTMNT)/
-	sync
+	$(ARMGNU)-ld -T $(SRC_DIR)/linker.ld -o $(BUILD_DIR)/kernel8.elf $(OBJ_FILES)
+	$(ARMGNU)-objcopy $(BUILD_DIR)/kernel8.elf -O binary $@
 	@echo ""
-	@echo "Build complete: kernel8.img"
+	@echo "Build complete: $@"
 	@echo "ELF file: $(BUILD_DIR)/kernel8.elf"
+
+deploy: kernel8.img
+	@test -d "$(BOOTMNT)" || (echo "BOOTMNT is not mounted: $(BOOTMNT)" >&2; exit 1)
+	cp kernel8.img "$(BOOTMNT)/kernel8.img"
+	cp config.txt "$(BOOTMNT)/config.txt"
+	sync
 
 armstub/build/armstub_s.o: armstub/src/armstub.S
 	mkdir -p $(@D)
@@ -60,5 +57,5 @@ armstub/build/armstub_s.o: armstub/src/armstub.S
 armstub: armstub/build/armstub_s.o
 	$(ARMGNU)-ld --section-start=.text=0 -o armstub/build/armstub.elf armstub/build/armstub_s.o
 	$(ARMGNU)-objcopy armstub/build/armstub.elf -O binary armstub-new.bin
-	cp armstub-new.bin $(BOOTMNT)/
+	cp armstub-new.bin "$(BOOTMNT)/"
 	sync

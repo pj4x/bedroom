@@ -5,6 +5,7 @@
 #include "timer.h"
 
 void putc(void *p, char c) {
+    (void)p;
     if (c == '\n') {
         uart_send('\r');
     }
@@ -17,12 +18,12 @@ u32 get_el();
 void kernel_main() {
     uart_init();
     init_printf(0, putc);
-    printf("\nRasperry PI Bare Metal OS Initializing...\n");
+    printf("\nbedroom OS Initializing...\n");
 
     irq_init_vectors();
+    timer_init();
     enable_interrupt_controller();
     irq_enable();
-    timer_init();
 
 #if RPI_VERSION == 3
     printf("\tBoard: Raspberry PI 3\n");
@@ -33,24 +34,6 @@ void kernel_main() {
 #endif
 
     printf("\nException Level: %d\n", get_el());
-
-    printf("Sleeping 200 ms...\n");
-    timer_sleep(200);
-
-    printf("Sleeping 200 ms...\n");
-    timer_sleep(200);
-
-    printf("Sleeping 200 ms...\n");
-    timer_sleep(200);
-
-    printf("Sleeping 2 seconds...\n");
-    timer_sleep(2000);
-
-    printf("Sleeping 2 seconds...\n");
-    timer_sleep(2000);
-
-    printf("Sleeping 5 seconds...\n");
-    timer_sleep(5000);
 
     printf("DONE!\n");
 

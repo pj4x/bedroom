@@ -9,50 +9,58 @@ u32 cur_val_1 = 0;
 const u32 interval_3 = CLOCKHZ / 4;
 u32 cur_val_3 = 0;
 
-void timer_init() {
-    cur_val_1 = REGS_TIMER->counter_lo;
-    cur_val_1 += interval_1;
-    REGS_TIMER->compare[1] = cur_val_1;
+static void schedule_next_compare(unsigned int channel, u32 *deadline, u32 interval)
+{
+    u32 now = REGS_TIMER->counter_lo;
 
-    cur_val_3 = REGS_TIMER->counter_lo;
-    cur_val_3 += interval_3;
+    // catch up if the handler was delayed
+    do {
+        *deadline += interval;
+    } while ((s32)(*deadline - now) <= 0);
+
+    REGS_TIMER->compare[channel] = *deadline;
+    REGS_TIMER->control_status = (1u << channel);
+}
+
+void timer_init(void)
+{
+    cur_val_1 = REGS_TIMER->counter_lo + interval_1;
+    REGS_TIMER->compare[1] = cur_val_1;
+    cur_val_3 = REGS_TIMER->counter_lo + interval_3;
     REGS_TIMER->compare[3] = cur_val_3;
+    // clear stale match flags before unmasking the cpu interrupt.
+    REGS_TIMER->control_status = (1u << 1) | (1u << 3);
 }
 
 void handle_timer_1() {
-    cur_val_1 += interval_1;
-    REGS_TIMER->compare[1] = cur_val_1;
-    REGS_TIMER->control_status |= SYS_TIMER_IRQ_1;
-
-    //printf("Timer 1 received.\n");
+    schedule_next_compare(1, &cur_val_1, interval_1);
+    printf("timer 1\n");
 }
 
 void handle_timer_3() {
-    cur_val_3 += interval_3;
-    REGS_TIMER->compare[3] = cur_val_3;
-    REGS_TIMER->control_status |= SYS_TIMER_IRQ_3;
-
-    //printf("Timer 3 received.\n");
+    schedule_next_compare(3, &cur_val_3, interval_3);
+    printf("timer 3\n");
 }
 
-u64 timer_get_ticks() {
-    u32 hi = REGS_TIMER->counter_hi;
-    u32 lo = REGS_TIMER->counter_lo;
-
-    //double check hi value didn't change after setting it...
-    if (hi != REGS_TIMER->counter_hi) {
-        hi = REGS_TIMER->counter_hi;
+u64 timer_get_ticks(void)
+{
+    u32 hi_before, lo, hi_after;
+    do {
+        hi_before = REGS_TIMER->counter_hi;
         lo = REGS_TIMER->counter_lo;
-    }
+        hi_after = REGS_TIMER->counter_hi;
+    } while (hi_before != hi_after);
 
-    return ((u64)hi << 32) | lo;
+    return ((u64)hi_after << 32) | lo;
 }
 
-//sleep in milliseconds.
-void timer_sleep(u32 ms) {
-    u64 start = timer_get_ticks();
-
-    while(timer_get_ticks() < start + (ms * 1000)) {
-
+// sleep in milliseconds
+// scheduler sleep comes later
+void timer_sleep(u32 ms)
+{
+    const u64 duration_us = (u64)ms * 1000ULL;
+    const u64 start = timer_get_ticks();
+    while ((timer_get_ticks() - start) < duration_us) {
+        __asm__ volatile("yield" ::: "memory");
     }
 }
