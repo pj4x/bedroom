@@ -1,0 +1,4 @@
+build/
+armstub/build/
+*.img
+*.elf
