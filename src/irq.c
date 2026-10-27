@@ -35,6 +35,7 @@ void show_invalid_entry_message(u32 type, u64 esr, u64 address)
 #define GICD_ISENABLER(n) (*(volatile u32 *)(GICD_BASE + 0x100 + 4u * (n)))
 #define GICD_ICENABLER(n) (*(volatile u32 *)(GICD_BASE + 0x180 + 4u * (n)))
 #define GICD_ITARGETSR(id) (*(volatile u8 *)(GICD_BASE + 0x800 + (id)))
+#define GICD_IPRIORITYR(id) (*(volatile u8 *)(GICD_BASE + 0x400u + (id)))
 #define GICC_CTLR       (*(volatile u32 *)(GICC_BASE + 0x000))
 #define GICC_PMR        (*(volatile u32 *)(GICC_BASE + 0x004))
 #define GICC_IAR        (*(volatile u32 *)(GICC_BASE + 0x00C))
@@ -46,7 +47,8 @@ void show_invalid_entry_message(u32 type, u64 esr, u64 address)
 
 static void gic_enable_spi(u32 id)
 {
-    GICD_ITARGETSR(id) = 1u; // route to CPU interface 0
+    GICD_ITARGETSR(id) = 1u;       // CPU interface 0
+    GICD_IPRIORITYR(id) = 0x80u;   // Normal priority
     GICD_ISENABLER(id / 32u) = 1u << (id % 32u);
 }
 
@@ -54,16 +56,22 @@ static void gic_enable_spi(u32 id)
 
 void enable_interrupt_controller(void)
 {
-    // Keep the controller disabled while configuring target and enable bits
     GICD_CTLR = 0;
     GICC_CTLR = 0;
+
+    __asm__ volatile("dsb sy" ::: "memory");
+
     GICC_PMR = 0xFF;
+
     gic_enable_spi(GIC_IRQ_AUX);
     gic_enable_spi(GIC_IRQ_TIMER1);
     gic_enable_spi(GIC_IRQ_TIMER3);
+
     __asm__ volatile("dsb sy\n\tisb" ::: "memory");
+
     GICD_CTLR = 1;
     GICC_CTLR = 1;
+
     __asm__ volatile("dsb sy\n\tisb" ::: "memory");
 }
 
@@ -98,8 +106,9 @@ void handle_irq(void)
     for (;;) {
         u32 acknowledge = GICC_IAR;
         u32 id = acknowledge & 0x3FFu;
-        if (id == GIC_SPURIOUS_ID)
+        if (id >= 1020u){
             return;
+        }
         dispatch_gic_irq(id);
         // GIC requires the original acknowledge token for completion
         GICC_EOIR = acknowledge;

@@ -6,17 +6,17 @@ COPS = -DRPI_VERSION=$(RPI_VERSION) \
        -ffreestanding -fno-stack-protector \
        -fno-pic -mgeneral-regs-only \
        -Iinclude
-ASMOPS = -Iinclude
+ASMOPS = -DRPI_VERSION=$(RPI_VERSION) -Iinclude
 
 BUILD_DIR = build
 SRC_DIR = src
 BOOTMNT = /Volumes/bootfs
 
 .PHONY: all clean deploy armstub
-all: kernel8.img
+all: armstub kernel8.img
 
 clean:
-	rm -rf $(BUILD_DIR) kernel8.img
+	rm -rf $(BUILD_DIR) armstub/build kernel8.img armstub-new.bin
 
 $(BUILD_DIR)/%_c.o: $(SRC_DIR)/%.c
 	mkdir -p $(@D)
@@ -44,10 +44,11 @@ kernel8.img: $(SRC_DIR)/linker.ld $(OBJ_FILES)
 	@echo "Build complete: $@"
 	@echo "ELF file: $(BUILD_DIR)/kernel8.elf"
 
-deploy: kernel8.img
+deploy: kernel8.img armstub-new.bin
 	@test -d "$(BOOTMNT)" || (echo "BOOTMNT is not mounted: $(BOOTMNT)" >&2; exit 1)
 	cp kernel8.img "$(BOOTMNT)/kernel8.img"
 	cp config.txt "$(BOOTMNT)/config.txt"
+	cp armstub-new.bin "$(BOOTMNT)/armstub-new.bin"
 	sync
 
 armstub/build/armstub_s.o: armstub/src/armstub.S
@@ -57,5 +58,3 @@ armstub/build/armstub_s.o: armstub/src/armstub.S
 armstub: armstub/build/armstub_s.o
 	$(ARMGNU)-ld --section-start=.text=0 -o armstub/build/armstub.elf armstub/build/armstub_s.o
 	$(ARMGNU)-objcopy armstub/build/armstub.elf -O binary armstub-new.bin
-	cp armstub-new.bin "$(BOOTMNT)/"
-	sync

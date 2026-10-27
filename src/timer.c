@@ -32,12 +32,14 @@ void timer_init(void)
     REGS_TIMER->control_status = (1u << 1) | (1u << 3);
 }
 
-void handle_timer_1() {
+void handle_timer_1(void) {
     schedule_next_compare(1, &cur_val_1, interval_1);
+    printf("timer 1\n");
 }
 
-void handle_timer_3() {
+void handle_timer_3(void) {
     schedule_next_compare(3, &cur_val_3, interval_3);
+    printf("timer 3\n");
 }
 
 u64 timer_get_ticks(void)
